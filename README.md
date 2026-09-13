@@ -1,1 +1,1 @@
-https://awsshiedprototype.streamlit.app/
+https://skyguardaiprototype.streamlit.app/
