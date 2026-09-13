@@ -447,7 +447,7 @@ st.sidebar.info(
 # =========================================================
 
 st.markdown(
-    '<div class="title">🛡️ SkyGuard AI</div>',
+    '<div class="title">☁️🛡️ SkyGuard AI</div>',
     unsafe_allow_html=True
 )
 
