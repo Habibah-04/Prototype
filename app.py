@@ -11,7 +11,7 @@ from datetime import datetime
 
 st.set_page_config(
     page_title="SkyGuard AI",
-    page_icon="🛡️",
+    page_icon="☁️🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -408,7 +408,7 @@ df, ml_model = run_ml_detection(df)
 # SIDEBAR
 # =========================================================
 
-st.sidebar.title("🛡️ SkyGuard AI")
+st.sidebar.title("☁️🛡️ SkyGuard AI")
 
 st.sidebar.caption(
     "AI/ML-Based Intelligent Anomaly Detection"
