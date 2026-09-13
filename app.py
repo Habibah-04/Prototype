@@ -3,898 +3,526 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from sklearn.ensemble import IsolationForest
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# =========================================================
+
+# ============================================================
 # PAGE CONFIGURATION
-# =========================================================
+# ============================================================
 
 st.set_page_config(
-    page_title="AWS SHIELD",
-    page_icon="🛡️",
+    page_title="SkyGuard AI",
+    page_icon="🌦️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# =========================================================
+
+# ============================================================
 # CUSTOM CSS
-# =========================================================
+# ============================================================
 
 st.markdown("""
 <style>
+
     .main {
         background-color: #f8fafc;
     }
 
-    .title {
-        font-size: 42px;
-        font-weight: 800;
-        margin-bottom: 0;
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
     }
 
-    .subtitle {
-        font-size: 18px;
-        color: #64748b;
-        margin-bottom: 25px;
-    }
-
-    .danger-box {
+    .metric-card {
+        background: white;
         padding: 20px;
         border-radius: 12px;
-        background-color: #fee2e2;
-        border-left: 6px solid #dc2626;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
     }
 
-    .success-box {
-        padding: 20px;
-        border-radius: 12px;
-        background-color: #dcfce7;
-        border-left: 6px solid #16a34a;
+    .status-normal {
+        color: #16a34a;
+        font-weight: 700;
     }
 
-    .warning-box {
-        padding: 20px;
-        border-radius: 12px;
-        background-color: #fef3c7;
-        border-left: 6px solid #d97706;
+    .status-warning {
+        color: #f59e0b;
+        font-weight: 700;
     }
+
+    .status-danger {
+        color: #dc2626;
+        font-weight: 700;
+    }
+
+    .section-title {
+        font-size: 24px;
+        font-weight: 700;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+
+    .info-box {
+        padding: 15px;
+        border-radius: 10px;
+        background: #eff6ff;
+        border-left: 5px solid #2563eb;
+        margin-bottom: 15px;
+    }
+
+    .anomaly-box {
+        padding: 15px;
+        border-radius: 10px;
+        background: #fef2f2;
+        border-left: 5px solid #dc2626;
+        margin-bottom: 10px;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
-# =========================================================
-# GENERATE DEMO AWS DATA
-# =========================================================
+
+# ============================================================
+# HEADER
+# ============================================================
+
+st.title("🌦️ SkyGuard AI")
+st.caption("Automatic Weather Station Anomaly Detection System")
+
+
+# ============================================================
+# DEMO DATA GENERATION
+# ============================================================
 
 @st.cache_data
 def generate_demo_data():
 
-    stations = {
-        "AWS-001": {
-            "latitude": 27.1767,
-            "longitude": 78.0081,
-            "temperature": 29
-        },
-        "AWS-002": {
-            "latitude": 26.8467,
-            "longitude": 80.9462,
-            "temperature": 29
-        },
-        "AWS-003": {
-            "latitude": 25.4358,
-            "longitude": 81.8463,
-            "temperature": 30
-        },
-        "AWS-004": {
-            "latitude": 26.4499,
-            "longitude": 80.3319,
-            "temperature": 28
-        },
-        "AWS-005": {
-            "latitude": 25.3176,
-            "longitude": 82.9739,
-            "temperature": 29
-        }
+    np.random.seed(42)
+
+    stations = [
+        "AWS-001",
+        "AWS-002",
+        "AWS-003",
+        "AWS-004",
+        "AWS-005"
+    ]
+
+    start_time = datetime.now() - timedelta(hours=23)
+
+    records = []
+
+    station_coordinates = {
+        "AWS-001": (25.3176, 82.9739),
+        "AWS-002": (25.4358, 81.8463),
+        "AWS-003": (26.4499, 80.3319),
+        "AWS-004": (25.5941, 85.1376),
+        "AWS-005": (26.8467, 80.9462)
     }
 
-    rng = np.random.default_rng(42)
+    for station in stations:
 
-    data = []
-
-    for station, info in stations.items():
-
-        base_temperature = info["temperature"]
+        lat, lon = station_coordinates[station]
 
         for hour in range(24):
 
-            temperature = (
-                base_temperature
-                + 1.2 * np.sin(hour / 24 * 2 * np.pi)
-                + rng.normal(0, 0.35)
-            )
+            timestamp = start_time + timedelta(hours=hour)
 
-            humidity = (
-                70
-                - (temperature - base_temperature) * 2
-                + rng.normal(0, 1.5)
-            )
+            temperature = np.random.normal(30, 3)
+            humidity = np.random.normal(60, 8)
+            pressure = np.random.normal(1012, 5)
 
-            wind_speed = max(
-                2,
-                12 + rng.normal(0, 2)
-            )
-
-            pressure = 1008 + rng.normal(0, 2)
-
-            # -------------------------------------------------
-            # INTENTIONAL ANOMALY FOR SIH DEMO
-            # -------------------------------------------------
-
-            if station == "AWS-002" and hour == 23:
-                temperature = 47.0
-
-            data.append({
+            records.append({
                 "Station": station,
-                "Hour": hour,
+                "Timestamp": timestamp,
                 "Temperature": round(temperature, 2),
                 "Humidity": round(humidity, 2),
-                "Wind Speed": round(wind_speed, 2),
                 "Pressure": round(pressure, 2),
-                "Latitude": info["latitude"],
-                "Longitude": info["longitude"]
+                "Latitude": lat,
+                "Longitude": lon
             })
 
-    return pd.DataFrame(data)
+    df = pd.DataFrame(records)
+
+    # --------------------------------------------------------
+    # Intentional anomaly for demonstration
+    # --------------------------------------------------------
+
+    anomaly_index = (
+        (df["Station"] == "AWS-002") &
+        (df["Timestamp"].dt.hour == df["Timestamp"].dt.hour.max())
+    )
+
+    if anomaly_index.any():
+        index = df[anomaly_index].index[0]
+        df.loc[index, "Temperature"] = 47.0
+
+    return df
 
 
-# =========================================================
-# MACHINE LEARNING MODEL
-# =========================================================
+df = generate_demo_data()
 
-def run_ml_detection(df):
 
+# ============================================================
+# MACHINE LEARNING ANOMALY DETECTION
+# ============================================================
+
+def run_ml_detection(data):
+
+    result = data.copy()
+
+    # Only Temperature, Humidity and Pressure are used
     features = [
         "Temperature",
         "Humidity",
-        "Wind Speed",
         "Pressure"
     ]
 
     model = IsolationForest(
-        n_estimators=150,
         contamination=0.05,
-        random_state=42
+        random_state=42,
+        n_estimators=150
     )
 
-    model.fit(df[features])
-
-    result = df.copy()
-
-    result["ML Prediction"] = model.predict(
+    result["ML Prediction"] = model.fit_predict(
         result[features]
     )
 
-    result["ML Score"] = -model.decision_function(
+    result["ML Anomaly"] = result["ML Prediction"].apply(
+        lambda x: "Anomaly" if x == -1 else "Normal"
+    )
+
+    result["Anomaly Score"] = model.decision_function(
         result[features]
     )
 
-    return result, model
+    return result
 
 
-# =========================================================
-# RULE BASED DETECTION
-# =========================================================
-
-def rule_based_detection(current, previous):
-
-    reasons = []
-
-    if len(previous) >= 3:
-
-        previous_average = (
-            previous["Temperature"]
-            .tail(3)
-            .mean()
-        )
-
-        temperature_difference = abs(
-            current["Temperature"]
-            - previous_average
-        )
-
-        if temperature_difference >= 8:
-
-            reasons.append(
-                "Sudden temperature spike"
-            )
-
-    # Physical range validation
-
-    if (
-        current["Temperature"] < -10
-        or current["Temperature"] > 50
-    ):
-
-        reasons.append(
-            "Temperature outside expected range"
-        )
-
-    if (
-        current["Humidity"] < 0
-        or current["Humidity"] > 100
-    ):
-
-        reasons.append(
-            "Humidity outside valid range"
-        )
-
-    if current["Wind Speed"] < 0:
-
-        reasons.append(
-            "Invalid wind speed"
-        )
-
-    return reasons
+df_ml = run_ml_detection(df)
 
 
-# =========================================================
-# NEARBY STATION CHECK
-# =========================================================
+# ============================================================
+# RULE-BASED DETECTION
+# ============================================================
 
-def nearby_station_check(current, df):
+def run_rule_detection(data):
 
-    same_hour = df[
-        df["Hour"] == current["Hour"]
-    ]
+    result = data.copy()
 
-    other_stations = same_hour[
-        same_hour["Station"]
-        != current["Station"]
-    ]
+    statuses = []
+    reasons_list = []
 
-    if other_stations.empty:
+    for _, current in result.iterrows():
 
-        return True, "No nearby comparison data available."
+        reasons = []
 
-    median_temperature = (
-        other_stations["Temperature"]
-        .median()
-    )
+        # Temperature validation
+        if current["Temperature"] < -20:
+            reasons.append("Very low temperature")
 
-    difference = abs(
-        current["Temperature"]
-        - median_temperature
-    )
+        if current["Temperature"] > 45:
+            reasons.append("Very high temperature")
 
-    if difference >= 8:
+        # Humidity validation
+        if current["Humidity"] < 0:
+            reasons.append("Invalid humidity")
 
-        return (
-            False,
-            f"Nearby stations are around "
-            f"{median_temperature:.1f}°C."
-        )
+        if current["Humidity"] > 100:
+            reasons.append("Invalid humidity")
 
-    return (
-        True,
-        f"Nearby stations are around "
-        f"{median_temperature:.1f}°C."
-    )
+        # Pressure validation
+        if current["Pressure"] < 850:
+            reasons.append("Very low pressure")
 
+        if current["Pressure"] > 1100:
+            reasons.append("Very high pressure")
 
-# =========================================================
-# COMPLETE ANOMALY ANALYSIS
-# =========================================================
-
-def analyze_station(df, station):
-
-    station_data = (
-        df[df["Station"] == station]
-        .sort_values("Hour")
-        .reset_index(drop=True)
-    )
-
-    current = station_data.iloc[-1]
-
-    previous = station_data.iloc[:-1]
-
-    # Rule detection
-
-    rule_reasons = rule_based_detection(
-        current,
-        previous
-    )
-
-    # Nearby station detection
-
-    nearby_ok, nearby_message = (
-        nearby_station_check(
-            current,
-            df
-        )
-    )
-
-    # ML detection
-
-    ml_anomaly = (
-        current["ML Prediction"] == -1
-    )
-
-    reasons = []
-
-    reasons.extend(rule_reasons)
-
-    if not nearby_ok:
-
-        reasons.append(
-            "Reading differs significantly "
-            "from nearby stations"
-        )
-
-    if ml_anomaly:
-
-        reasons.append(
-            "ML model detected an unusual pattern"
-        )
-
-    anomaly_detected = len(reasons) > 0
-
-    # Classification
-
-    if anomaly_detected:
-
-        if (
-            not nearby_ok
-            and len(rule_reasons) > 0
-        ):
-
-            classification = (
-                "Likely Faulty Sensor Reading"
-            )
-
-            recommendation = (
-                "Inspect and recalibrate "
-                "the temperature sensor."
-            )
-
+        if reasons:
+            statuses.append("Anomaly")
+            reasons_list.append(", ".join(reasons))
         else:
+            statuses.append("Normal")
+            reasons_list.append("")
 
-            classification = (
-                "Suspicious Observation"
-            )
+    result["Rule Status"] = statuses
+    result["Rule Reason"] = reasons_list
 
-            recommendation = (
-                "Verify this reading using "
-                "historical and nearby station data."
-            )
-
-    else:
-
-        classification = (
-            "Normal Observation"
-        )
-
-        recommendation = (
-            "No immediate action required."
-        )
-
-    # Explainable confidence
-
-    if len(reasons) >= 3:
-
-        confidence = 98
-
-    elif len(reasons) == 2:
-
-        confidence = 92
-
-    elif len(reasons) == 1:
-
-        confidence = 85
-
-    else:
-
-        confidence = 12
-
-    return {
-        "current": current,
-        "previous": previous,
-        "rule_reasons": rule_reasons,
-        "nearby_ok": nearby_ok,
-        "nearby_message": nearby_message,
-        "ml_anomaly": ml_anomaly,
-        "reasons": reasons,
-        "anomaly": anomaly_detected,
-        "classification": classification,
-        "recommendation": recommendation,
-        "confidence": confidence
-    }
+    return result
 
 
-# =========================================================
-# LOAD DATA
-# =========================================================
+df_final = run_rule_detection(df_ml)
 
-df = generate_demo_data()
 
-df, ml_model = run_ml_detection(df)
+# ============================================================
+# COMBINED ANOMALY STATUS
+# ============================================================
 
-# =========================================================
-# SIDEBAR
-# =========================================================
-
-st.sidebar.title("🛡️ AWS SHIELD")
-
-st.sidebar.caption(
-    "AI/ML-Based Intelligent Anomaly Detection"
+df_final["Final Status"] = np.where(
+    (df_final["ML Anomaly"] == "Anomaly") |
+    (df_final["Rule Status"] == "Anomaly"),
+    "Anomaly",
+    "Normal"
 )
 
-st.sidebar.divider()
+
+# ============================================================
+# SIDEBAR NAVIGATION
+# ============================================================
+
+st.sidebar.title("🛰️ SkyGuard AI")
 
 page = st.sidebar.radio(
     "Navigation",
     [
-        "🏠 Dashboard",
-        "🔍 Anomaly Detection",
-        "📈 Sensor Analytics",
-        "🗺️ Station Map",
-        "📋 Data Explorer"
+        "Dashboard",
+        "Anomaly Detection",
+        "Sensor Analytics",
+        "Station Map",
+        "Data Explorer"
     ]
 )
 
-st.sidebar.divider()
+st.sidebar.markdown("---")
 
 st.sidebar.info(
     """
-    Prototype Mode
+    **AI-Powered AWS Monitoring**
 
-    The application currently uses
-    simulated AWS observations for
-    demonstration.
+    Parameters monitored:
 
-    Real AWS/API/database data can
-    be connected later.
+    🌡️ Temperature  
+    💧 Humidity  
+    🌬️ Pressure
     """
 )
 
-# =========================================================
-# HEADER
-# =========================================================
 
-st.markdown(
-    '<div class="title">🛡️ AWS SHIELD</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">'
-    'Detect the Data Error Before It Becomes a Forecast Error.'
-    '</div>',
-    unsafe_allow_html=True
-)
-
-# =========================================================
+# ============================================================
 # DASHBOARD
-# =========================================================
+# ============================================================
 
-if page == "🏠 Dashboard":
+if page == "Dashboard":
 
-    latest = (
-        df.sort_values("Hour")
-        .groupby("Station")
-        .tail(1)
-        .copy()
+    st.markdown(
+        '<div class="section-title">📊 System Dashboard</div>',
+        unsafe_allow_html=True
     )
 
-    anomaly_stations = []
+    total_stations = df_final["Station"].nunique()
 
-    for station in latest["Station"]:
+    total_readings = len(df_final)
 
-        analysis = analyze_station(
-            df,
-            station
-        )
+    total_anomalies = (
+        df_final["Final Status"] == "Anomaly"
+    ).sum()
 
-        if analysis["anomaly"]:
+    normal_readings = total_readings - total_anomalies
 
-            anomaly_stations.append(
-                station
-            )
+    anomaly_rate = (
+        total_anomalies / total_readings * 100
+        if total_readings > 0
+        else 0
+    )
 
+    # --------------------------------------------------------
     # Metrics
+    # --------------------------------------------------------
 
     col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric(
-        "Total Stations",
-        len(latest)
-    )
-
-    col2.metric(
-        "Normal",
-        len(latest)
-        - len(anomaly_stations)
-    )
-
-    col3.metric(
-        "Anomalies",
-        len(anomaly_stations)
-    )
-
-    col4.metric(
-        "Critical",
-        sum(
-            station == "AWS-002"
-            for station in anomaly_stations
+    with col1:
+        st.metric(
+            "AWS Stations",
+            total_stations
         )
+
+    with col2:
+        st.metric(
+            "Total Readings",
+            total_readings
+        )
+
+    with col3:
+        st.metric(
+            "Anomalies",
+            total_anomalies
+        )
+
+    with col4:
+        st.metric(
+            "Anomaly Rate",
+            f"{anomaly_rate:.1f}%"
+        )
+
+    st.markdown("---")
+
+    # --------------------------------------------------------
+    # Latest Readings
+    # --------------------------------------------------------
+
+    st.subheader("📡 Latest Station Readings")
+
+    latest = (
+        df_final
+        .sort_values("Timestamp")
+        .groupby("Station")
+        .tail(1)
+        .sort_values("Station")
     )
 
-    st.divider()
-
-    # Station status
-
-    st.subheader(
-        "📡 Live Station Status"
-    )
-
-    display = latest[
+    display_df = latest[
         [
             "Station",
+            "Timestamp",
             "Temperature",
             "Humidity",
-            "Wind Speed",
-            "Pressure"
+            "Pressure",
+            "Final Status"
         ]
-    ].copy()
-
-    display["Status"] = [
-        (
-            "🔴 Anomaly"
-            if station in anomaly_stations
-            else "🟢 Normal"
-        )
-        for station in display["Station"]
     ]
 
     st.dataframe(
-        display,
+        display_df,
         use_container_width=True,
         hide_index=True
     )
 
-    # Temperature chart
+    st.markdown("---")
 
-    st.subheader(
-        "🌡️ Current Temperature"
-    )
-
-    fig = px.bar(
-        latest,
-        x="Station",
-        y="Temperature",
-        color="Station",
-        text="Temperature",
-        title="Latest Temperature by AWS Station"
-    )
-
-    fig.update_traces(
-        texttemplate="%{text}°C",
-        textposition="outside"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-    # Alert
-
-    if anomaly_stations:
-
-        st.error(
-            "⚠️ Anomaly detected at: "
-            + ", ".join(anomaly_stations)
-            + ". Open Anomaly Detection "
-            "for detailed analysis."
-        )
-
-# =========================================================
-# ANOMALY DETECTION
-# =========================================================
-
-elif page == "🔍 Anomaly Detection":
-
-    st.subheader(
-        "🔍 Intelligent Anomaly Detection"
-    )
-
-    station = st.selectbox(
-        "Select AWS Station",
-        sorted(
-            df["Station"].unique()
-        )
-    )
-
-    analysis = analyze_station(
-        df,
-        station
-    )
-
-    current = analysis["current"]
-
-    previous = analysis["previous"]
-
-    # Top metrics
+    # --------------------------------------------------------
+    # Parameter Overview
+    # --------------------------------------------------------
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric(
-        "Current Temperature",
-        f"{current['Temperature']:.1f} °C"
-    )
-
-    col2.metric(
-        "Anomaly Confidence",
-        f"{analysis['confidence']}%"
-    )
-
-    col3.metric(
-        "Classification",
-        analysis["classification"]
-    )
-
-    st.divider()
-
-    # Historical graph
-
-    st.subheader(
-        "📈 Sensor Reading History"
-    )
-
-    chart_data = previous[
-        ["Hour", "Temperature"]
-    ].copy()
-
-    latest_point = pd.DataFrame({
-        "Hour": [current["Hour"]],
-        "Temperature": [
-            current["Temperature"]
-        ]
-    })
-
-    chart_data = pd.concat(
-        [
-            chart_data,
-            latest_point
-        ],
-        ignore_index=True
-    )
-
-    fig = px.line(
-        chart_data,
-        x="Hour",
-        y="Temperature",
-        markers=True,
-        title=f"{station} Temperature History"
-    )
-
-    fig.add_hline(
-        y=40,
-        line_dash="dash",
-        annotation_text="High Temperature Alert"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-    # Explainable AI
-
-    st.subheader(
-        "🧠 Explainable AI Analysis"
-    )
-
-    col1, col2 = st.columns(2)
-
     with col1:
-
-        st.markdown(
-            "### 1. Rule-Based Validation"
+        st.metric(
+            "Avg Temperature",
+            f"{df_final['Temperature'].mean():.1f} °C"
         )
-
-        if analysis["rule_reasons"]:
-
-            st.error(
-                "Anomaly detected"
-            )
-
-            for reason in analysis[
-                "rule_reasons"
-            ]:
-
-                st.write(
-                    "• " + reason
-                )
-
-        else:
-
-            st.success(
-                "No rule-based anomaly"
-            )
-
-        st.markdown(
-            "### 2. Historical Comparison"
-        )
-
-        if len(previous) >= 3:
-
-            average = (
-                previous[
-                    "Temperature"
-                ]
-                .tail(3)
-                .mean()
-            )
-
-            difference = abs(
-                current["Temperature"]
-                - average
-            )
-
-            st.write(
-                f"Previous 3-reading average: "
-                f"**{average:.1f}°C**"
-            )
-
-            st.write(
-                f"Current reading: "
-                f"**{current['Temperature']:.1f}°C**"
-            )
-
-            st.write(
-                f"Difference: "
-                f"**{difference:.1f}°C**"
-            )
 
     with col2:
-
-        st.markdown(
-            "### 3. Nearby Station Validation"
+        st.metric(
+            "Avg Humidity",
+            f"{df_final['Humidity'].mean():.1f} %"
         )
 
-        if analysis["nearby_ok"]:
-
-            st.success(
-                "Nearby stations are consistent"
-            )
-
-        else:
-
-            st.error(
-                "Nearby station mismatch"
-            )
-
-        st.write(
-            analysis["nearby_message"]
+    with col3:
+        st.metric(
+            "Avg Pressure",
+            f"{df_final['Pressure'].mean():.1f} hPa"
         )
 
-        st.markdown(
-            "### 4. ML Detection"
-        )
 
-        if analysis["ml_anomaly"]:
+# ============================================================
+# ANOMALY DETECTION
+# ============================================================
 
-            st.error(
-                "ML model flagged this observation"
-            )
+elif page == "Anomaly Detection":
 
-        else:
+    st.markdown(
+        '<div class="section-title">🚨 Anomaly Detection</div>',
+        unsafe_allow_html=True
+    )
 
-            st.success(
-                "ML model did not flag this observation"
-            )
+    st.markdown(
+        """
+        <div class="info-box">
+        SkyGuard AI combines <b>Isolation Forest machine learning</b>
+        with rule-based validation to identify abnormal AWS readings.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.divider()
-
-    # Final classification
-
-    if (
-        analysis["classification"]
-        == "Likely Faulty Sensor Reading"
-    ):
-
-        st.markdown(
-            f"""
-            <div class="danger-box">
-
-            <h2>🔴 Likely Faulty Sensor Reading</h2>
-
-            <p>
-            The system detected multiple indicators
-            suggesting that this observation may be
-            caused by a sensor/data problem.
-            </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    elif (
-        analysis["classification"]
-        == "Suspicious Observation"
-    ):
-
-        st.markdown(
-            f"""
-            <div class="warning-box">
-
-            <h2>🟠 Suspicious Observation</h2>
-
-            <p>
-            The observation requires verification.
-            </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    else:
-
-        st.markdown(
-            f"""
-            <div class="success-box">
-
-            <h2>🟢 Normal Observation</h2>
-
-            <p>
-            No significant anomaly indicators were detected.
-            </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    anomalies = df_final[
+        df_final["Final Status"] == "Anomaly"
+    ].copy()
 
     st.subheader(
-        "Why is this reading suspicious?"
+        f"Detected Anomalies: {len(anomalies)}"
     )
 
-    if analysis["reasons"]:
+    if len(anomalies) == 0:
 
-        for reason in analysis["reasons"]:
-
-            st.write(
-                "🔎 " + reason
-            )
+        st.success("✅ No anomalies detected.")
 
     else:
 
-        st.write(
-            "No anomaly indicators detected."
+        for _, row in anomalies.iterrows():
+
+            reason = row["Rule Reason"]
+
+            if not reason:
+                reason = "Detected by AI anomaly model"
+
+            st.markdown(
+                f"""
+                <div class="anomaly-box">
+                    <b>🚨 {row['Station']}</b><br>
+                    Time: {row['Timestamp']}<br>
+                    Temperature: {row['Temperature']} °C<br>
+                    Humidity: {row['Humidity']} %<br>
+                    Pressure: {row['Pressure']} hPa<br>
+                    Reason: {reason}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    st.markdown("---")
+
+    st.subheader("🔍 Detection Method")
+
+    method_col1, method_col2 = st.columns(2)
+
+    with method_col1:
+
+        st.markdown(
+            """
+            ### 🤖 Machine Learning
+
+            **Isolation Forest**
+
+            Uses the following parameters:
+
+            - Temperature
+            - Humidity
+            - Pressure
+
+            The model identifies observations that differ
+            significantly from normal sensor patterns.
+            """
         )
 
-    st.warning(
-        "Recommended Action: "
-        + analysis["recommendation"]
-    )
+    with method_col2:
 
-# =========================================================
+        st.markdown(
+            """
+            ### 📏 Rule-Based Validation
+
+            Checks sensor values against predefined limits:
+
+            - Temperature: -20°C to 45°C
+            - Humidity: 0% to 100%
+            - Pressure: 850 to 1100 hPa
+
+            Values outside these limits are flagged as anomalies.
+            """
+        )
+
+
+# ============================================================
 # SENSOR ANALYTICS
-# =========================================================
+# ============================================================
 
-elif page == "📈 Sensor Analytics":
+elif page == "Sensor Analytics":
 
-    st.subheader(
-        "📈 Sensor Analytics"
-    )
-
-    station = st.selectbox(
-        "Select Station",
-        sorted(
-            df["Station"].unique()
-        ),
-        key="analytics_station"
+    st.markdown(
+        '<div class="section-title">📈 Sensor Analytics</div>',
+        unsafe_allow_html=True
     )
 
     parameter = st.selectbox(
@@ -902,22 +530,35 @@ elif page == "📈 Sensor Analytics":
         [
             "Temperature",
             "Humidity",
-            "Wind Speed",
             "Pressure"
         ]
     )
 
-    station_data = (
-        df[df["Station"] == station]
-        .sort_values("Hour")
+    station = st.selectbox(
+        "Select Station",
+        sorted(df_final["Station"].unique())
     )
+
+    station_data = df_final[
+        df_final["Station"] == station
+    ].sort_values("Timestamp")
+
+    # --------------------------------------------------------
+    # Line Chart
+    # --------------------------------------------------------
 
     fig = px.line(
         station_data,
-        x="Hour",
+        x="Timestamp",
         y=parameter,
         markers=True,
-        title=f"{station} - {parameter}"
+        title=f"{parameter} Trend — {station}"
+    )
+
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title=parameter,
+        hovermode="x unified"
     )
 
     st.plotly_chart(
@@ -925,160 +566,154 @@ elif page == "📈 Sensor Analytics":
         use_container_width=True
     )
 
-    st.subheader(
-        "📊 Statistical Summary"
-    )
+    # --------------------------------------------------------
+    # Statistics
+    # --------------------------------------------------------
 
-    summary = (
-        station_data[
-            [parameter]
-        ]
-        .describe()
-        .round(2)
-    )
+    st.subheader("📊 Statistics")
 
-    st.dataframe(
-        summary,
-        use_container_width=True
-    )
+    c1, c2, c3, c4 = st.columns(4)
 
-# =========================================================
+    with c1:
+        st.metric(
+            "Minimum",
+            f"{station_data[parameter].min():.2f}"
+        )
+
+    with c2:
+        st.metric(
+            "Maximum",
+            f"{station_data[parameter].max():.2f}"
+        )
+
+    with c3:
+        st.metric(
+            "Average",
+            f"{station_data[parameter].mean():.2f}"
+        )
+
+    with c4:
+        st.metric(
+            "Std. Deviation",
+            f"{station_data[parameter].std():.2f}"
+        )
+
+
+# ============================================================
 # STATION MAP
-# =========================================================
+# ============================================================
 
-elif page == "🗺️ Station Map":
+elif page == "Station Map":
 
-    st.subheader(
-        "🗺️ Automatic Weather Station Network"
+    st.markdown(
+        '<div class="section-title">🗺️ AWS Station Map</div>',
+        unsafe_allow_html=True
     )
 
     latest = (
-        df.sort_values("Hour")
+        df_final
+        .sort_values("Timestamp")
         .groupby("Station")
         .tail(1)
-        .copy()
     )
-
-    latest["Status"] = [
-        (
-            "Anomaly"
-            if analyze_station(
-                df,
-                station
-            )["anomaly"]
-            else "Normal"
-        )
-        for station in latest["Station"]
-    ]
 
     map_data = latest[
         [
+            "Station",
             "Latitude",
-            "Longitude"
+            "Longitude",
+            "Temperature",
+            "Humidity",
+            "Pressure",
+            "Final Status"
         ]
-    ].rename(
-        columns={
-            "Latitude": "lat",
-            "Longitude": "lon"
-        }
-    )
+    ].copy()
 
     st.map(
         map_data,
-        zoom=6
+        latitude="Latitude",
+        longitude="Longitude"
     )
 
-    st.subheader(
-        "Station Information"
-    )
+    st.subheader("📍 Station Status")
 
     st.dataframe(
-        latest[
-            [
-                "Station",
-                "Latitude",
-                "Longitude",
-                "Temperature",
-                "Humidity",
-                "Status"
-            ]
-        ],
+        map_data,
         use_container_width=True,
         hide_index=True
     )
 
-# =========================================================
+
+# ============================================================
 # DATA EXPLORER
-# =========================================================
+# ============================================================
 
-elif page == "📋 Data Explorer":
+elif page == "Data Explorer":
 
-    st.subheader(
-        "📋 AWS Observation Data"
+    st.markdown(
+        '<div class="section-title">🗃️ Data Explorer</div>',
+        unsafe_allow_html=True
     )
 
-    uploaded_file = st.file_uploader(
-        "Upload AWS CSV Data",
-        type=["csv"]
+    st.write(
+        "Explore the complete AWS sensor dataset."
     )
 
-    if uploaded_file:
+    # --------------------------------------------------------
+    # Filters
+    # --------------------------------------------------------
 
-        try:
+    col1, col2 = st.columns(2)
 
-            uploaded_data = pd.read_csv(
-                uploaded_file
-            )
+    with col1:
 
-            st.success(
-                "CSV uploaded successfully."
-            )
-
-            st.dataframe(
-                uploaded_data,
-                use_container_width=True,
-                hide_index=True
-            )
-
-        except Exception as error:
-
-            st.error(
-                f"Could not read CSV: {error}"
-            )
-
-    else:
-
-        st.info(
-            "Showing simulated AWS data."
+        selected_station = st.multiselect(
+            "Filter by Station",
+            sorted(df_final["Station"].unique()),
+            default=sorted(df_final["Station"].unique())
         )
 
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True
+    with col2:
+
+        selected_status = st.multiselect(
+            "Filter by Status",
+            ["Normal", "Anomaly"],
+            default=["Normal", "Anomaly"]
         )
+
+    filtered_df = df_final[
+        df_final["Station"].isin(selected_station) &
+        df_final["Final Status"].isin(selected_status)
+    ]
+
+    st.dataframe(
+        filtered_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.markdown("---")
+
+    # --------------------------------------------------------
+    # Download
+    # --------------------------------------------------------
+
+    csv = filtered_df.to_csv(index=False)
 
     st.download_button(
-        "⬇️ Download Demo AWS Data",
-        data=df.to_csv(
-            index=False
-        ).encode("utf-8"),
-        file_name="aws_shield_demo_data.csv",
+        label="⬇️ Download CSV",
+        data=csv,
+        file_name="aws_shield_sensor_data.csv",
         mime="text/csv"
     )
 
-# =========================================================
+
+# ============================================================
 # FOOTER
-# =========================================================
+# ============================================================
 
-st.divider()
-
-st.caption(
-    "AWS SHIELD Prototype | SIH26073 | "
-    "AI/ML-Based Intelligent Anomaly Detection "
-    "for Automatic Weather Stations"
-)
+st.markdown("---")
 
 st.caption(
-    "Prototype demonstration uses simulated AWS observations."
+    "🌦️ SkyGuard AI | AI-powered weather station anomaly detection"
 )
